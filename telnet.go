@@ -68,7 +68,8 @@ func (tc *TelnetClient) setDefaultParams() {
 
 func (tc *TelnetClient) log(format string, params ...interface{}) {
 	if tc.Verbose {
-		fmt.Fprintf(tc.LogWriter, "telnet: "+format+"\n", params)
+		fmt.Fprintf(tc.LogWriter, "telnet: "+format+"\n", params...)
+		tc.LogWriter.Flush()
 	}
 }
 
@@ -300,7 +301,7 @@ func (tc *TelnetClient) Execute(
 	}
 
 	request := []byte(name + " " + strings.Join(args, " ") + "\r\n")
-	tc.log("Send command: %s", request)
+	tc.log("Send command: %s", request[:len(request)-2])
 	tc.Write(request)
 
 	stdout, err = tc.ReadUntilBanner()
