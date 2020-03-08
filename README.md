@@ -1,5 +1,5 @@
 # telnet-client
-Tiny telnet client for sending commands to remove server.  
+Tiny telnet client for sending commands to remote server.  
 Client does passing authorization and parsing of command result. 
 
 ## Example of usage
