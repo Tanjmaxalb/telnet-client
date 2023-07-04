@@ -1,3 +1,3 @@
-module github.com/tanjmaxalb/telnet-client
+module github.com/streamdp/telnet-client
 
 go 1.13
