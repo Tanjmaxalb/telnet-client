@@ -35,10 +35,9 @@ const (
 	DONT = 254
 )
 
-var loginRe *regexp.Regexp = regexp.MustCompile("[\\w\\d-_]+ login:")
+var loginRe *regexp.Regexp = regexp.MustCompile("Login:")
 var passwordRe *regexp.Regexp = regexp.MustCompile("Password:")
-var bannerRe *regexp.Regexp = regexp.MustCompile(
-	"[\\w\\d-_]+@[\\w\\d-_]+:[\\w\\d/-_~]+(\\$|#)")
+var bannerRe *regexp.Regexp = regexp.MustCompile("\\(config\\)>")
 
 // TelnetClient is basic descriptor
 type TelnetClient struct {
@@ -160,10 +159,15 @@ func (tc *TelnetClient) ReadByte() (b byte, err error) {
 
 // ReadUntil reads bytes until a specific symbol.
 // Delimiter character will be written to result buffer
-func (tc *TelnetClient) ReadUntil(data *[]byte, delim byte) (n int, err error) {
+func (tc *TelnetClient) ReadUntil(data *[]byte, delim ...byte) (n int, err error) {
 	var b byte
 
-	for b != delim {
+	for {
+		for i := range delim {
+			if b == delim[i] {
+				return
+			}
+		}
 		b, err = tc.ReadByte()
 		if err != nil {
 			break
@@ -211,7 +215,7 @@ func (tc *TelnetClient) ReadUntilPrompt(
 		// prompt has ':' or whitespace in end of line.
 		// However, may be cases which have another behaviors.
 		// So client may freeze
-		n, err = tc.ReadUntil(&output, ' ')
+		n, err = tc.ReadUntil(&output, ' ', ':')
 		if err != nil {
 			return
 		}
