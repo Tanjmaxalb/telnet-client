@@ -14,25 +14,27 @@ import (
 const (
 	// IAC interpret as command
 	IAC = 255
-	// SB is subnegotiation of the indicated option follows
+	// SB is sub negotiation of the indicated option follows
 	SB = 250
-	// SE is end of subnegotiation parameters
+	// SE is end of sub negotiation parameters
 	SE = 240
-	// WILL indicates the desire to begin
+	// WILL indicate the desire to begin
 	WILL = 251
-	// WONT indicates the refusal to perform,
+	// WONT indicate the refusal to perform,
 	// continue performing, the indicated option
 	WONT = 252
-	// DO indicates the request that the other
+	// DO indicate the request that the other
 	// party perform, or confirmation that you are
 	// expecting the other party to perform, the indicated option
 	DO = 253
-	// DONT indicates the demand that the other
+	// DONT indicate the demand that the other
 	// party stop performing, or confirmation that you
 	// are no longer expecting the other party to
 	// perform, the indicated option
 	DONT = 254
 )
+
+const defaultDelimiter byte = ' '
 
 var defaultLoginRe *regexp.Regexp = regexp.MustCompile("[\\w\\d-_]+ login:")
 var defaultPasswordRe *regexp.Regexp = regexp.MustCompile("Password:")
@@ -52,8 +54,7 @@ type TelnetClient struct {
 	writer    *bufio.Writer
 	conn      net.Conn
 
-	Delimeter byte
-
+	Delimiter  byte
 	LoginRe    *regexp.Regexp
 	PasswordRe *regexp.Regexp
 	BannerRe   *regexp.Regexp
@@ -69,8 +70,8 @@ func (tc *TelnetClient) setDefaultParams() {
 	if tc.Verbose && tc.LogWriter == nil {
 		tc.LogWriter = bufio.NewWriter(os.Stdout)
 	}
-	if tc.Delimeter == 0 {
-		tc.Delimeter = ' '
+	if tc.Delimiter == 0 {
+		tc.Delimiter = defaultDelimiter
 	}
 	if tc.LoginRe == nil {
 		tc.LoginRe = defaultLoginRe
@@ -227,11 +228,11 @@ func (tc *TelnetClient) ReadUntilPrompt(
 
 	for {
 		// Usually, if system print a prompt,
-		// it requires inputing data and
+		// it requires inputting data and
 		// prompt has ':' or whitespace in end of line.
 		// However, may be cases which have another behaviors.
 		// So client may freeze
-		n, err = tc.ReadUntil(&output, tc.Delimeter)
+		n, err = tc.ReadUntil(&output, tc.Delimiter)
 		if err != nil {
 			return
 		}
@@ -267,7 +268,7 @@ func (tc *TelnetClient) ReadUntilBanner() (output []byte, err error) {
 
 func (tc *TelnetClient) findInputPrompt(
 	re *regexp.Regexp,
-	responce string,
+	response string,
 	buffer []byte,
 ) bool {
 	match := re.Find(buffer)
@@ -275,7 +276,7 @@ func (tc *TelnetClient) findInputPrompt(
 		return false
 	}
 
-	tc.Write([]byte(responce + "\r\n"))
+	tc.Write([]byte(response + "\r\n"))
 
 	return true
 }

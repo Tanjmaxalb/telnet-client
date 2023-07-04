@@ -287,7 +287,7 @@ func Test_TelnetClient_ReadUntilPrompt(t *testing.T) {
 
 	tc := &TelnetClient{
 		Timeout:   10 * time.Millisecond,
-		Delimeter: ' ',
+		Delimiter: defaultDelimiter,
 		LoginRe:   regexp.MustCompile("[\\w\\d-_]+ login:"),
 	}
 	tests := []testReadCase{
@@ -321,7 +321,7 @@ func Test_TelnetClient_ReadUntilPrompt(t *testing.T) {
 func Test_TelnetClient_ReadUntilBanner(t *testing.T) {
 	tc := &TelnetClient{
 		Timeout:   10 * time.Millisecond,
-		Delimeter: ' ',
+		Delimiter: defaultDelimiter,
 		BannerRe:  defaultBannerRe,
 	}
 	tests := []testReadCase{
@@ -356,7 +356,7 @@ func Test_TelnetClient_waitWelcomeSigns(t *testing.T) {
 		Login:    "username",
 		Password: "P@ssw0rd",
 
-		Delimeter:  ' ',
+		Delimiter:  defaultDelimiter,
 		LoginRe:    defaultLoginRe,
 		PasswordRe: defaultPasswordRe,
 		BannerRe:   defaultBannerRe,
