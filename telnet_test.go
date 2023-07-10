@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"regexp"
 	"sync"
 	"testing"
 	"time"
@@ -284,7 +285,11 @@ func Test_TelnetClient_ReadUntilPrompt(t *testing.T) {
 			data) == 0
 	}
 
-	tc := &TelnetClient{Timeout: 10 * time.Millisecond}
+	tc := &TelnetClient{
+		Timeout:   10 * time.Millisecond,
+		Delimiter: defaultDelimiter,
+		LoginRe:   regexp.MustCompile("[\\w\\d-_]+ login:"),
+	}
 	tests := []testReadCase{
 		{
 			name: "ReadUntilPrompt: signle package",
@@ -314,7 +319,11 @@ func Test_TelnetClient_ReadUntilPrompt(t *testing.T) {
 }
 
 func Test_TelnetClient_ReadUntilBanner(t *testing.T) {
-	tc := &TelnetClient{Timeout: 10 * time.Millisecond}
+	tc := &TelnetClient{
+		Timeout:   10 * time.Millisecond,
+		Delimiter: defaultDelimiter,
+		BannerRe:  defaultBannerRe,
+	}
 	tests := []testReadCase{
 		{
 			name: "ReadUntilBanner: root banner",
@@ -346,6 +355,11 @@ func Test_TelnetClient_waitWelcomeSigns(t *testing.T) {
 		Timeout:  10 * time.Millisecond,
 		Login:    "username",
 		Password: "P@ssw0rd",
+
+		Delimiter:  defaultDelimiter,
+		LoginRe:    defaultLoginRe,
+		PasswordRe: defaultPasswordRe,
+		BannerRe:   defaultBannerRe,
 	}
 
 	t.Run("waitWelcomeSigns", func(t *testing.T) {
@@ -380,6 +394,7 @@ func Test_TelnetClient_waitWelcomeSigns(t *testing.T) {
 					login[:n])
 				return
 			}
+			cw.Write(login[:n])
 
 			// Password
 			cw.Write([]byte("\r\nPassword: "))
@@ -390,6 +405,7 @@ func Test_TelnetClient_waitWelcomeSigns(t *testing.T) {
 					password[:n])
 				return
 			}
+			cw.Write(password[:n])
 
 			// Write banner
 			cw.Write([]byte("\r\n\r\nASUSWRT RT-N14U_3.0.0.4 Sun Jan 19 14:13:45 UTC 2014"))

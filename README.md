@@ -78,3 +78,17 @@ arp -a
 ? (192.168.1.193) at f8:63:3f:8a:3e:e6 [ether]  on br0
 ...
 ```
+
+### Configuring delimiter and prompts
+
+You can set `Delimeter`, `LoginRe`, `PasswordRe`,`BannerRe` parameters to customize telnet client as you wants.
+
+```Go
+tc := telnet.TelnetClient{
+    ...
+    Delimeter: ':', 
+    LoginRe:   regexp.MustCompile("Login:"),
+    PasswordRe: regexp.MustCompile("Password:"),
+    BannerRe:  regexp.MustCompile("\\(config\\)>"),
+}
+```
