@@ -4,40 +4,41 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"net"
 	"os"
 	"regexp"
 	"strings"
 	"time"
-
-	"net"
 )
 
 const (
 	// IAC interpret as command
 	IAC = 255
-	// SB is subnegotiation of the indicated option follows
+	// SB is sub negotiation of the indicated option follows
 	SB = 250
-	// SE is end of subnegotiation parameters
+	// SE is end of sub negotiation parameters
 	SE = 240
-	// WILL indicates the desire to begin
+	// WILL indicate the desire to begin
 	WILL = 251
-	// WONT indicates the refusal to perform,
+	// WONT indicate the refusal to perform,
 	// continue performing, the indicated option
 	WONT = 252
-	// DO indicates the request that the other
+	// DO indicate the request that the other
 	// party perform, or confirmation that you are
 	// expecting the other party to perform, the indicated option
 	DO = 253
-	// DONT indicates the demand that the other
+	// DONT indicate the demand that the other
 	// party stop performing, or confirmation that you
 	// are no longer expecting the other party to
 	// perform, the indicated option
 	DONT = 254
 )
 
-var loginRe *regexp.Regexp = regexp.MustCompile("[\\w\\d-_]+ login:")
-var passwordRe *regexp.Regexp = regexp.MustCompile("Password:")
-var bannerRe *regexp.Regexp = regexp.MustCompile(
+const defaultDelimiter byte = ' '
+
+var defaultLoginRe *regexp.Regexp = regexp.MustCompile("[\\w\\d-_]+ login:")
+var defaultPasswordRe *regexp.Regexp = regexp.MustCompile("Password:")
+var defaultBannerRe *regexp.Regexp = regexp.MustCompile(
 	"[\\w\\d-_]+@[\\w\\d-_]+:[\\w\\d/-_~]+(\\$|#)")
 
 // TelnetClient is basic descriptor
@@ -52,6 +53,11 @@ type TelnetClient struct {
 	reader    *bufio.Reader
 	writer    *bufio.Writer
 	conn      net.Conn
+
+	Delimiter  byte
+	LoginRe    *regexp.Regexp
+	PasswordRe *regexp.Regexp
+	BannerRe   *regexp.Regexp
 }
 
 func (tc *TelnetClient) setDefaultParams() {
@@ -63,6 +69,18 @@ func (tc *TelnetClient) setDefaultParams() {
 	}
 	if tc.Verbose && tc.LogWriter == nil {
 		tc.LogWriter = bufio.NewWriter(os.Stdout)
+	}
+	if tc.Delimiter == 0 {
+		tc.Delimiter = defaultDelimiter
+	}
+	if tc.LoginRe == nil {
+		tc.LoginRe = defaultLoginRe
+	}
+	if tc.PasswordRe == nil {
+		tc.PasswordRe = defaultPasswordRe
+	}
+	if tc.BannerRe == nil {
+		tc.BannerRe = defaultBannerRe
 	}
 }
 
@@ -163,7 +181,10 @@ func (tc *TelnetClient) ReadByte() (b byte, err error) {
 func (tc *TelnetClient) ReadUntil(data *[]byte, delim byte) (n int, err error) {
 	var b byte
 
-	for b != delim {
+	for {
+		if b == delim {
+			return
+		}
 		b, err = tc.ReadByte()
 		if err != nil {
 			break
@@ -207,11 +228,11 @@ func (tc *TelnetClient) ReadUntilPrompt(
 
 	for {
 		// Usually, if system print a prompt,
-		// it requires inputing data and
+		// it requires inputting data and
 		// prompt has ':' or whitespace in end of line.
 		// However, may be cases which have another behaviors.
 		// So client may freeze
-		n, err = tc.ReadUntil(&output, ' ')
+		n, err = tc.ReadUntil(&output, tc.Delimiter)
 		if err != nil {
 			return
 		}
@@ -235,11 +256,11 @@ func (tc *TelnetClient) ReadUntilPrompt(
 // ReadUntilBanner reads until banner, i.e. whole output from command
 func (tc *TelnetClient) ReadUntilBanner() (output []byte, err error) {
 	output, err = tc.ReadUntilPrompt(func(data []byte) bool {
-		m := bannerRe.Find(data)
+		m := tc.BannerRe.Find(data)
 		return len(m) > 0
 	})
 
-	output = bannerRe.ReplaceAll(output, []byte{})
+	output = tc.BannerRe.ReplaceAll(output, []byte{})
 	output = bytes.Trim(output, " ")
 
 	return
@@ -247,7 +268,7 @@ func (tc *TelnetClient) ReadUntilBanner() (output []byte, err error) {
 
 func (tc *TelnetClient) findInputPrompt(
 	re *regexp.Regexp,
-	responce string,
+	response string,
 	buffer []byte,
 ) bool {
 	match := re.Find(buffer)
@@ -255,7 +276,7 @@ func (tc *TelnetClient) findInputPrompt(
 		return false
 	}
 
-	tc.Write([]byte(responce + "\r\n"))
+	tc.Write([]byte(response + "\r\n"))
 
 	return true
 }
@@ -264,16 +285,16 @@ func (tc *TelnetClient) findInputPrompt(
 // If detect login prompt, it will authorize
 func (tc *TelnetClient) waitWelcomeSigns() (err error) {
 	_, err = tc.ReadUntilPrompt(func(data []byte) bool {
-		if tc.findInputPrompt(loginRe, tc.Login, data) {
+		if tc.findInputPrompt(tc.LoginRe, tc.Login, data) {
 			tc.log("Found login prompt")
 			return false
 		}
-		if tc.findInputPrompt(passwordRe, tc.Password, data) {
+		if tc.findInputPrompt(tc.PasswordRe, tc.Password, data) {
 			tc.log("Found password prompt")
 			return false
 		}
 
-		m := bannerRe.Find(data)
+		m := tc.BannerRe.Find(data)
 		return len(m) > 0
 	})
 

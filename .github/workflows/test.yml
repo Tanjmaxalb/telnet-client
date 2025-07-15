@@ -1,0 +1,24 @@
+name: test
+on:
+  push:
+    branches: ['*']
+    tags-ignore: ['*']
+jobs:
+  unit_testing:
+    runs-on: ubuntu-24.04
+    steps:
+    - name: Checkout ${{ github.repository }}
+      uses: actions/checkout@v4.1.7
+    - name: Set up Go
+      uses: actions/setup-go@v5.0.1
+      with:
+        go-version: 1.24.0
+    - name: Install dependencies
+      run: go get ./...
+    - name: Test with the Go CLI
+      run: go test ./... -json > test-results.json
+    - name: Upload Go test results
+      uses: actions/upload-artifact@v4.3.3
+      with:
+        name: test-results-${{ github.sha }}
+        path: test-results.json

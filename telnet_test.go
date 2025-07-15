@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"io"
+	"regexp"
 	"sync"
 	"testing"
 	"time"
@@ -82,14 +83,14 @@ func Test_skipSBSequence(t *testing.T) {
 		{
 			name: "skipSBSequence: Just skip SB/SE sequence",
 			args: [][]byte{
-				[]byte{0xfa, 0x18, 0, 0x56, 0x54, 0x32, 0x32, 0x30, 0xff, 0xf0},
+				{0xfa, 0x18, 0, 0x56, 0x54, 0x32, 0x32, 0x30, 0xff, 0xf0},
 			},
 			want: []byte{},
 		},
 		{
 			name: "skipSBSequence: Skip first SB/SE sequence",
 			args: [][]byte{
-				[]byte{
+				{
 					0xfa, 0x18, 0, 0x56, 0x54, 0x32, 0x32, 0x30, 0xff, 0xf0,
 					0x70, 0x6c, 0x61, 0x69, 0x6e, 0x20, 0x74, 0x65, 0x78, 0x74,
 					0xff, 0xfa, 0x18, 0, 0x56, 0x54, 0x32, 0x32, 0x30, 0xff, 0xf0,
@@ -104,7 +105,7 @@ func Test_skipSBSequence(t *testing.T) {
 			name:        "skipSBSequence error: without SE",
 			wantTimeout: true,
 			args: [][]byte{
-				[]byte{
+				{
 					0xfa, 0x18, 0, 0x56, 0x54, 0x32, 0x32, 0x30, 0xff, // 0xf0,
 					0x70, 0x6c, 0x61, 0x69, 0x6e, 0x20, 0x74, 0x65, 0x78, 0x74,
 					0xff, 0xfa, 0x18, 0, 0x56, 0x54, 0x32, 0x32, 0x30, // 0xff, 0xf0,
@@ -115,7 +116,7 @@ func Test_skipSBSequence(t *testing.T) {
 		{
 			name: "skipSBSequence error: without IAC for SE",
 			args: [][]byte{
-				[]byte{
+				{
 					0xfa, 0x18, 0, 0x56, 0x54, 0x32, 0x32, 0x30, 0xf0,
 					0x70, 0x6c, 0x61, 0x69, 0x6e, 0x20, 0x74, 0x65, 0x78, 0x74,
 					0xff, 0xfa, 0x18, 0, 0x56, 0x54, 0x32, 0x32, 0x30, 0xff, 0xf0,
@@ -127,7 +128,7 @@ func Test_skipSBSequence(t *testing.T) {
 		{
 			name: "skipSBSequence error: multiple IAC",
 			args: [][]byte{
-				[]byte{0xff, 0xfa, 0x18, 0, 0x56, 0x54, 0x32, 0x32, 0x30, 0xff, 0xf0},
+				{0xff, 0xfa, 0x18, 0, 0x56, 0x54, 0x32, 0x32, 0x30, 0xff, 0xf0},
 			},
 			want: []byte{},
 		},
@@ -152,35 +153,35 @@ func Test_skipCommand(t *testing.T) {
 		{
 			name: "skipCommand: Just skip SB/SE sequence",
 			args: [][]byte{
-				[]byte{0xfa, 0x18, 0, 0x56, 0x54, 0x32, 0x32, 0x30, 0xff, 0xf0},
+				{0xfa, 0x18, 0, 0x56, 0x54, 0x32, 0x32, 0x30, 0xff, 0xf0},
 			},
 			want: []byte{},
 		},
 		{
 			name: "skipCommand: Just skip DO command",
 			args: [][]byte{
-				[]byte{0xfd, 0x03},
+				{0xfd, 0x03},
 			},
 			want: []byte{},
 		},
 		{
 			name: "skipCommand: Skip first DO command",
 			args: [][]byte{
-				[]byte{0xfd, 0x03, 0xff, 0xfd, 0x21},
+				{0xfd, 0x03, 0xff, 0xfd, 0x21},
 			},
 			want: []byte{0xff, 0xfd, 0x21},
 		},
 		{
 			name: "skipCommand: Nothing, invalid format",
 			args: [][]byte{
-				[]byte{0xff, 0xfd, 0x03, 0xff, 0xfd, 0x21},
+				{0xff, 0xfd, 0x03, 0xff, 0xfd, 0x21},
 			},
 			want: []byte{0xff, 0xfd, 0x03, 0xff, 0xfd, 0x21},
 		},
 		{
 			name: "skipCommand: Plain text",
 			args: [][]byte{
-				[]byte{0x70, 0x6c, 0x61, 0x69, 0x6e},
+				{0x70, 0x6c, 0x61, 0x69, 0x6e},
 			},
 			want: []byte{0x70, 0x6c, 0x61, 0x69, 0x6e},
 		},
@@ -212,14 +213,14 @@ func Test_TelnetClient_ReadByte(t *testing.T) {
 			name:        "ReadByte: Empty",
 			wantTimeout: true,
 			args: [][]byte{
-				[]byte{},
+				{},
 			},
 			want: []byte{},
 		},
 		{
 			name: "ReadByte: Byte with commands",
 			args: [][]byte{
-				[]byte{
+				{
 					0xff, 0xfd, 0x03,
 					0x70,
 				},
@@ -284,7 +285,11 @@ func Test_TelnetClient_ReadUntilPrompt(t *testing.T) {
 			data) == 0
 	}
 
-	tc := &TelnetClient{Timeout: 10 * time.Millisecond}
+	tc := &TelnetClient{
+		Timeout:   10 * time.Millisecond,
+		Delimiter: defaultDelimiter,
+		LoginRe:   regexp.MustCompile("[\\w\\d-_]+ login:"),
+	}
 	tests := []testReadCase{
 		{
 			name: "ReadUntilPrompt: signle package",
@@ -314,7 +319,11 @@ func Test_TelnetClient_ReadUntilPrompt(t *testing.T) {
 }
 
 func Test_TelnetClient_ReadUntilBanner(t *testing.T) {
-	tc := &TelnetClient{Timeout: 10 * time.Millisecond}
+	tc := &TelnetClient{
+		Timeout:   10 * time.Millisecond,
+		Delimiter: defaultDelimiter,
+		BannerRe:  defaultBannerRe,
+	}
 	tests := []testReadCase{
 		{
 			name: "ReadUntilBanner: root banner",
@@ -346,6 +355,11 @@ func Test_TelnetClient_waitWelcomeSigns(t *testing.T) {
 		Timeout:  10 * time.Millisecond,
 		Login:    "username",
 		Password: "P@ssw0rd",
+
+		Delimiter:  defaultDelimiter,
+		LoginRe:    defaultLoginRe,
+		PasswordRe: defaultPasswordRe,
+		BannerRe:   defaultBannerRe,
 	}
 
 	t.Run("waitWelcomeSigns", func(t *testing.T) {
@@ -380,6 +394,7 @@ func Test_TelnetClient_waitWelcomeSigns(t *testing.T) {
 					login[:n])
 				return
 			}
+			cw.Write(login[:n])
 
 			// Password
 			cw.Write([]byte("\r\nPassword: "))
@@ -390,6 +405,7 @@ func Test_TelnetClient_waitWelcomeSigns(t *testing.T) {
 					password[:n])
 				return
 			}
+			cw.Write(password[:n])
 
 			// Write banner
 			cw.Write([]byte("\r\n\r\nASUSWRT RT-N14U_3.0.0.4 Sun Jan 19 14:13:45 UTC 2014"))
